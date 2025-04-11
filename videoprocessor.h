@@ -459,7 +459,7 @@ class VideoProcessor {
 				  break;
 
               //cv::Mat resized;
-              cv::resize(frame, frame, cv::Size(620, 360));   //my change
+              cv::resize(frame, frame, cv::Size(620, 360));   //my addition
 
 			  // display input frame
 			  if (windowNameInput.length()!=0) 
@@ -489,7 +489,7 @@ class VideoProcessor {
 			  if (windowNameOutput.length()!=0) 
               {
 				  cv::imshow(windowNameOutput,output);
-                  cv::moveWindow(windowNameOutput, 0, 360);    //my change
+                  cv::moveWindow(windowNameOutput, 0, 360);    //my addition
                 }
 
 			  // introduce a delay

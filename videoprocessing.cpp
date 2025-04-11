@@ -16,111 +16,84 @@ and any consequent failure, is purely the responsibility of the user.
 Copyright (C) 2016 Robert Laganiere, www.laganiere.name
 \*------------------------------------------------------------------------------------------*/
 
-#include <string>
 #include <iostream>
-#include <sstream>
-#include <unistd.h>
 #include <opencv2/core.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#include <opencv2/bgsegm.hpp>
 
 #include "videoprocessor.h"
+#include "BGFGSegmentor.h"
 
-void draw(const cv::Mat& img, cv::Mat& out) {
-
-	img.copyTo(out);
-	cv::circle(out, cv::Point(100,100),5,cv::Scalar(255,0,0),2);
-}
-
-// processing function
-void canny(cv::Mat& img, cv::Mat& out) 
+int main()
 {
-   // Convert to gray
-   if (img.channels()==3)
-      cv::cvtColor(img,out,cv::COLOR_BGR2GRAY);
-   // Compute Canny edges
-   cv::Canny(out,out,100,200);
-   // Invert the image
-   cv::threshold(out,out,128,255,cv::THRESH_BINARY_INV);
- }
+	// Open the video file
+    //cv::VideoCapture capture("../Amarcord.mp4");
+	cv::VideoCapture capture(0);
+	// check if video successfully opened
+	if (!capture.isOpened())
+		return 0;
 
-		// int div = 32;
-		// out = img.clone();
-		// int nc= out.cols * out.channels();	
-		// for (int j=0; j<out.rows; j++) {
-		// 	// get the address of row j
-		// 	uchar* data= out.ptr<uchar>(j);
-		// 	for (int i=0; i<nc; i++) {
-		// 	    // process each pixel 
-		// 	    data[i]= (data[i]/div)*div + div/2;
-		// 	}
-		// }
-void reduce(cv::Mat& img, cv::Mat& out)
-{
-		int div = 32;				//this is equivalent to the above
-		out = img.clone();
-		u_int8_t mask  = 0xE0;
-		out=(out&cv::Scalar(mask,mask,mask)) + cv::Scalar(div/2,div/2,div/2);
-}
+	// current video frame
+	cv::Mat frame; 
+	// foreground binary image
+	cv::Mat foreground;
+	// background image
+	cv::Mat background;
 
-void complement(cv::Mat& img, cv::Mat& out)
-{
-		// 	const int64 start = cv::getTickCount();
-		    cv::subtract(cv::Scalar(255,255,255), img, out);	
-		//    double duration = (cv::getTickCount() - start)/cv::getTickFrequency();
-		// 	std::cout << "Time taken: " << duration << " seconds" << std::endl;
-}
+	cv::namedWindow("Extracted Foreground");
 
+	// The Mixture of Gaussian object
+	// used with all default parameters
+	cv::Ptr<cv::BackgroundSubtractor> ptrMOG = cv::bgsegm::createBackgroundSubtractorMOG();
+	
+	bool stop(false);
+	// for all frames in video
+	while (!stop) {
 
+		// read next frame if any
+		if (!capture.read(frame))
+			break;
 
-int main(int argc, char *argv[])
-{
+		// update the background
+		// and return the foreground
+		ptrMOG->apply(frame,foreground,0.01);
 
+		// Complement the image
+		cv::threshold(foreground,foreground,128,255,cv::THRESH_BINARY_INV);
 
-	// Create instance
+		// show foreground and background
+		cv::imshow("Extracted Foreground",foreground);
+
+		// introduce a delay
+		// or press key to stop
+		if (cv::waitKey(10)>=0)
+				stop= true;
+	}
+
+	cv::waitKey();
+
+	// Create video procesor instance
 	VideoProcessor processor;
 
-	int opt;
-	while ((opt = getopt(argc, argv, "abc")) != -1) 
-	{
-	  switch (opt) {
-	  case 'a':
-		// Set the frame processor callback function
-		processor.setFrameProcessor(canny);
-		break;
-	  case 'b':
-		processor.setFrameProcessor(reduce);
-		break;
-	  case 'c':
-		processor.setFrameProcessor(complement);
-		break;
-	  default:break;
-	  }
-	}
-/******************************************************/
-	// Now using the VideoProcessor class
+	// Create background/foreground segmentor 
+	BGFGSegmentor segmentor;
+	segmentor.setThreshold(30);
 
 	// Open video file
-	//processor.setInput("../Amarcord.mp4");
-	processor.setInput(0);	//use camera
+	processor.setInput("bike.avi");
+
+	// set frame processor
+	processor.setFrameProcessor(&segmentor);
 
 	// Declare a window to display the video
-	processor.displayInput("Input Video");
-	processor.displayOutput("Output Video");
+	processor.displayOutput("Extracted Foreground");
 
 	// Play the video at the original frame rate
 	processor.setDelay(1000./processor.getFrameRate());
 
-	// output a video
-	processor.setOutput("bikeCanny.avi",-1,15);
-
-	// stop the process at this frame
-	processor.stopAtFrameNo(51);
-
 	// Start the process
 	processor.run();
 
-	cv::waitKey();	
-
-	return 0;
-}
+	cv::waitKey();
+} 
